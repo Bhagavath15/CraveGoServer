@@ -46,6 +46,11 @@ const customizationGroupSchema = new mongoose.Schema(
 
 const menuItemSchema = new mongoose.Schema(
   {
+    itemId: {
+      type: String,
+      index: true,
+    },
+
     name: {
       type: String,
       required: true,

@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import authRouter from './routes/authRoutes.js';
 import restaurantRouter from './routes/restaurantRoutes.js';
+import cartRouter from './routes/cartRoutes.js';
 import connectDb from './config/db.js';
 
 dotenv.config();
@@ -20,6 +21,7 @@ app.use(express.json());
 
 app.use('/', authRouter);
 app.use('/restaurants', restaurantRouter)
+app.use('/cart',cartRouter)
 
 const PORT = process.env.PORT
 

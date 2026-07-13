@@ -4,7 +4,7 @@ import { requireSignIn } from '../middleware/authMiddleware.js';
 
 const router = express.Router()
 
-router.get('/', requireSignIn, getRestaurants)
+router.get('/', requireSignIn, getRestaurants);
 router.get("/:restaurantId/menu", requireSignIn, getRestaurantMenu);
 
 export default router;
