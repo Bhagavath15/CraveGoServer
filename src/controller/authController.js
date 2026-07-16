@@ -106,7 +106,7 @@ export const verifyEmailOtp = async (req, res) => {
         const user = await userModel.findOneAndUpdate(
             { email },
             { isVerified: true },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         return res.status(200).json({

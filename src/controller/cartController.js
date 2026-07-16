@@ -14,7 +14,7 @@ const calculateCartTotals = (cart) => {
     }
 
     cart.subtotal = subtotal;
-    cart.deliveryFee = subtotal >= 499 ? 0 : 40;
+    cart.deliveryFee = subtotal >= 500 ? 0 : 40;
     cart.taxes = Number((subtotal * 0.05).toFixed(2));
     cart.grandTotal = cart.subtotal + cart.deliveryFee + cart.taxes - (cart.discount || 0);
 

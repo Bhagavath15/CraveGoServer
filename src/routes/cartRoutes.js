@@ -8,7 +8,7 @@ const router = express.Router();
 router.post('/add', requireSignIn, addToCart)
 router.get('/', requireSignIn, getCart)
 router.patch('/update', requireSignIn, updateCartItem)
-router.delete('/delete', requireSignIn, removeCartItem)
-router.delete('/clear', requireSignIn, clearCart)
+router.post('/delete', requireSignIn, removeCartItem)
+router.post('/clear', requireSignIn, clearCart)
 
 export default router;
