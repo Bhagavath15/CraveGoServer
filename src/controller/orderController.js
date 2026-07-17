@@ -6,6 +6,7 @@ import restaurantModel from "../models/restaurantDetails.js";
 import restaurantMenuModel from "../models/restaurantMenu.js";
 import { generateOrderNumber } from "../utils/orderCounter.js";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, ACTIVE_STATUSES, NON_CANCELLABLE_STATUSES } from "../constants/orderStatus.js";
+import stripe from "../config/stripe.js";
 
 const autoAdvanceTimers = new Map();
 
@@ -22,7 +23,7 @@ export const placeOrder = async (req, res) => {
         session.startTransaction();
         const userId = req.user.id;
 
-        const { addressId, paymentMethod, idempotencyKey } = req.body;
+        const { addressId, paymentMethod, paymentIntentId, idempotencyKey } = req.body;
 
         if (!addressId) {
             return res.status(400).json({
@@ -72,7 +73,7 @@ export const placeOrder = async (req, res) => {
             });
         }
 
-        const allowedMethods = ["COD", "UPI", "CARD"];
+        const allowedMethods = ["COD", "UPI", "CARD", "ONLINE"];
 
         if (!allowedMethods.includes(paymentMethod)) {
             return res.status(400).json({
@@ -123,14 +124,14 @@ export const placeOrder = async (req, res) => {
         let subtotal = 0;
 
         const orderItems = cart.items.map((item) => {
-            const customizationTotal = (item.customizations || []).reduce(
-                (sum, option) => sum + option.price,
+            const customizationTotal = (item.customization || item.customizations || []).reduce(
+                (sum, option) => sum + (option.price || 0),
                 0
             );
 
             const unitPrice = item.price + customizationTotal;
 
-            const totalPrice = unitPrice * item.quantity;
+            const totalPrice = Math.round(unitPrice * item.quantity * 100) / 100;
 
             subtotal += totalPrice;
 
@@ -140,27 +141,28 @@ export const placeOrder = async (req, res) => {
                 image: item.image,
                 price: item.price,
                 quantity: item.quantity,
-                customizations: item.customizations,
+                customizations: item.customization || item.customizations,
                 totalPrice,
             };
         });
+
+        const round2 = (n) => Math.round(n * 100) / 100;
 
         const deliveryFee =
             subtotal >= DELIVERY_CONFIG.FREE_DELIVERY_MIN_AMOUNT
                 ? 0
                 : DELIVERY_CONFIG.DELIVERY_FEE;
 
-        const taxes = Math.round(
-            subtotal * (DELIVERY_CONFIG.GST_PERCENTAGE / 100)
-        );
+        const tax = round2(subtotal * (DELIVERY_CONFIG.GST_PERCENTAGE / 100));
 
         const discount = 0;
 
-        const grandTotal =
+        const grandTotal = round2(
             subtotal +
             deliveryFee +
-            taxes -
-            discount;
+            tax -
+            discount
+        );
 
         const orderNumber = await generateOrderNumber();
 
@@ -192,28 +194,31 @@ export const placeOrder = async (req, res) => {
                     items: orderItems,
                     subtotal,
                     deliveryFee,
-                    taxes,
+                    tax,
                     discount,
                     grandTotal,
                     paymentMethod,
-                    paymentStatus: "Pending",
+                    paymentStatus: paymentIntentId ? "Authorized" : "Pending",
+                    paymentIntentId,
                     orderStatus: ORDER_STATUS.PLACED,
                 },
             ],
             { session }
         );
 
-        await session.commitTransaction();
-
         cart.items = [];
         cart.restaurantId = null;
         cart.subtotal = 0;
         cart.deliveryFee = 0;
-        cart.taxes = 0;
+        cart.tax = 0;
         cart.discount = 0;
         cart.grandTotal = 0;
+        cart.markModified('items');
+        cart.markModified('restaurantId');
 
         await cart.save();
+
+        await session.commitTransaction();
 
         const io = req.app.get('io');
         if (io) {
@@ -260,6 +265,14 @@ export const getOrders = async (req, res) => {
             const plain = doc.toObject();
             plain.orderStatus = Number(plain.orderStatus);
             plain.id = plain._id;
+            plain.tax = plain.tax ?? plain.taxes ?? 0;
+            delete plain.taxes;
+            if (plain.items) {
+                plain.items = plain.items.map((item) => ({
+                    ...item,
+                    totalPrice: item.totalPrice ?? (item.price || 0) * (item.quantity || 1),
+                }));
+            }
             return plain;
         });
 
@@ -305,10 +318,21 @@ export const getOrderById = async (req, res) => {
             });
         }
 
+        const plain = order.toObject();
+        plain.orderStatus = Number(plain.orderStatus);
+        plain.tax = plain.tax ?? plain.taxes ?? 0;
+        delete plain.taxes;
+        if (plain.items) {
+            plain.items = plain.items.map((item) => ({
+                ...item,
+                totalPrice: item.totalPrice ?? (item.price || 0) * (item.quantity || 1),
+            }));
+        }
+
         return res.status(200).json({
             success: true,
             message: "Order fetched successfully.",
-            order,
+            order: plain,
         });
 
     } catch (error) {
@@ -334,7 +358,16 @@ export const advanceOrderStatus = async (req, res) => {
         }
         const newStatus = Number(order.orderStatus) + 1;
         const update = { orderStatus: newStatus };
-        if (newStatus === ORDER_STATUS.DELIVERED) update.deliveredAt = new Date();
+        if (newStatus === ORDER_STATUS.DELIVERED) {
+            update.deliveredAt = new Date();
+            if (order.paymentMethod !== "COD" && order.paymentIntentId) {
+                try {
+                    await stripe.paymentIntents.capture(order.paymentIntentId);
+                    update.paymentStatus = "Paid";
+                } catch (stripeErr) {
+                }
+            }
+        }
         const updated = await orderModel.findOneAndUpdate(
             { _id: id, userId, orderStatus: order.orderStatus },
             { $set: update },
@@ -387,20 +420,36 @@ export const cancelOrder = async (req, res) => {
         order.cancelledAt = new Date();
         order.cancellationReason = reason;
 
-        /*
-        |--------------------------------------------------------------------------
-        | Refund Logic (Future)
-        |--------------------------------------------------------------------------
-        */
-
         if (
             order.paymentMethod !== "COD" &&
-            order.paymentStatus === "Paid"
+            order.paymentStatus === "Authorized" &&
+            order.paymentIntentId
         ) {
-            // Trigger refund service later
+            try {
+                await stripe.paymentIntents.cancel(order.paymentIntentId);
+                order.paymentStatus = "Refunded";
+                } catch (stripeErr) {
+            }
         }
 
         await order.save();
+
+        try {
+            const userCart = await cartModel.findOne({ userId });
+            if (userCart && userCart.items.length > 0) {
+                userCart.items = [];
+                userCart.restaurantId = null;
+                userCart.subtotal = 0;
+                userCart.deliveryFee = 0;
+                userCart.tax = 0;
+                userCart.discount = 0;
+                userCart.grandTotal = 0;
+                userCart.markModified('items');
+                userCart.markModified('restaurantId');
+                await userCart.save();
+            }
+            } catch (cartErr) {
+        }
 
         const io = req.app.get('io');
         if (io) {
@@ -410,7 +459,7 @@ export const cancelOrder = async (req, res) => {
         return res.status(200).json({
             success: true,
             message: "Order cancelled successfully.",
-            data: order,
+            order,
         });
 
     } catch (error) {
@@ -420,5 +469,34 @@ export const cancelOrder = async (req, res) => {
             message: error.message,
         });
 
+    }
+};
+
+export const rateOrder = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+        const { overallRating, foodRating, riderRating, riderFeedback, reviewText } = req.body;
+
+        const order = await orderModel.findOne({ _id: id, userId });
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found." });
+        }
+        if (order.isRated) {
+            return res.status(400).json({ success: false, message: "Order already rated." });
+        }
+
+        order.isRated = true;
+        order.overallRating = overallRating || 0;
+        order.foodRating = foodRating || 0;
+        order.riderRating = riderRating || 0;
+        order.riderFeedback = riderFeedback || [];
+        order.reviewText = reviewText || "";
+
+        await order.save();
+
+        return res.status(200).json({ success: true, message: "Rating submitted successfully." });
+    } catch (error) {
+        return res.status(500).json({ success: false, message: error.message });
     }
 };

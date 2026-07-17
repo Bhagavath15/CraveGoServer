@@ -131,7 +131,7 @@ const orderSchema = new mongoose.Schema(
             default: 0,
         },
 
-        taxes: {
+        tax: {
             type: Number,
             default: 0,
         },
@@ -148,14 +148,19 @@ const orderSchema = new mongoose.Schema(
 
         paymentMethod: {
             type: String,
-            enum: ["COD", "UPI", "CARD"],
+            enum: ["COD", "UPI", "CARD", "ONLINE"],
             default: "COD",
         },
 
         paymentStatus: {
             type: String,
-            enum: ["Pending", "Paid", "Failed", "Refunded"],
+            enum: ["Pending", "Authorized", "Paid", "Failed", "Refunded"],
             default: "Pending",
+        },
+
+        paymentIntentId: {
+            type: String,
+            default: null,
         },
 
         orderStatus: {
@@ -179,6 +184,30 @@ const orderSchema = new mongoose.Schema(
         },
 
         cancellationReason: {
+            type: String,
+            default: "",
+        },
+
+        isRated: {
+            type: Boolean,
+            default: false,
+        },
+        overallRating: {
+            type: Number,
+            default: 0,
+        },
+        foodRating: {
+            type: Number,
+            default: 0,
+        },
+        riderRating: {
+            type: Number,
+            default: 0,
+        },
+        riderFeedback: [{
+            type: String,
+        }],
+        reviewText: {
             type: String,
             default: "",
         },

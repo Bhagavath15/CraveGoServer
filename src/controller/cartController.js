@@ -9,14 +9,15 @@ const calculateCartTotals = (cart) => {
             (sum, opt) => sum + (opt.price || 0),
             0
         );
-        item.totalPrice = (item.price + customizationPrice) * item.quantity;
+        item.totalPrice = Math.round((item.price + customizationPrice) * item.quantity * 100) / 100;
         subtotal += item.totalPrice;
     }
 
-    cart.subtotal = subtotal;
+    const round2 = (n) => Math.round(n * 100) / 100;
+    cart.subtotal = round2(subtotal);
     cart.deliveryFee = subtotal >= 500 ? 0 : 40;
-    cart.taxes = Number((subtotal * 0.05).toFixed(2));
-    cart.grandTotal = cart.subtotal + cart.deliveryFee + cart.taxes - (cart.discount || 0);
+    cart.tax = round2(subtotal * 0.05);
+    cart.grandTotal = round2(cart.subtotal + cart.deliveryFee + cart.tax - (cart.discount || 0));
 
     return cart;
 };
@@ -73,13 +74,18 @@ export const addToCart = async (req, res) => {
             });
         }
 
+        if (cart.items.length === 0) {
+            cart.restaurantId = null;
+            cart.markModified('restaurantId');
+        }
+
         if (cart.restaurantId && cart.restaurantId !== restaurantId && cart.items.length > 0) {
             return res.status(400).json({
                 success: false,
                 message: "Your cart contains items from another restaurant.",
             });
         }
-
+        
         cart.restaurantId = restaurantId;
 
         const existingItem = cart.items.find(
@@ -109,7 +115,6 @@ export const addToCart = async (req, res) => {
             cart,
         });
     } catch (error) {
-        console.error("addToCart error:", error);
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to add item to cart.",
@@ -129,12 +134,21 @@ export const getCart = async (req, res) => {
             });
         }
 
+        const plain = cart.toObject();
+        plain.tax = plain.tax ?? plain.taxes ?? 0;
+        delete plain.taxes;
+        if (plain.items) {
+            plain.items = plain.items.map((item) => ({
+                ...item,
+                totalPrice: item.totalPrice ?? (item.price || 0) * (item.quantity || 1),
+            }));
+        }
+
         return res.status(200).json({
             success: true,
-            cart,
+            cart: plain,
         });
     } catch (error) {
-        console.error("getCart error:", error);
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to get cart.",
@@ -184,7 +198,6 @@ export const updateCartItem = async (req, res) => {
             cart,
         });
     } catch (error) {
-        console.error("updateCartItem error:", error);
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to update cart item.",
@@ -225,6 +238,7 @@ export const removeCartItem = async (req, res) => {
 
         if (cart.items.length === 0) {
             cart.restaurantId = null;
+            cart.markModified('restaurantId');
         }
 
         calculateCartTotals(cart);
@@ -236,7 +250,6 @@ export const removeCartItem = async (req, res) => {
             cart,
         });
     } catch (error) {
-        console.error("removeCartItem error:", error);
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to remove item.",
@@ -262,19 +275,19 @@ export const clearCart = async (req, res) => {
         cart.restaurantId = null;
         cart.subtotal = 0;
         cart.deliveryFee = 0;
-        cart.taxes = 0;
+        cart.tax = 0;
         cart.discount = 0;
         cart.grandTotal = 0;
+        cart.markModified('items');
+        cart.markModified('restaurantId');
 
         await cart.save();
 
         return res.status(200).json({
             success: true,
             message: "Cart cleared successfully.",
-            cart,
         });
     } catch (error) {
-        console.error("clearCart error:", error);
         return res.status(500).json({
             success: false,
             message: error.message || "Failed to clear cart.",

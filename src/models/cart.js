@@ -75,7 +75,7 @@ const cartSchema = new mongoose.Schema(
             default: 0,
         },
 
-        taxes: {
+        tax: {
             type: Number,
             default: 0,
         },

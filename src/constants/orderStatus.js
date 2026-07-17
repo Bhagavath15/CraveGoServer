@@ -5,8 +5,9 @@ export const ORDER_STATUS = {
     READY_FOR_PICKUP: 3,
     PICKED_UP: 4,
     OUT_FOR_DELIVERY: 5,
-    DELIVERED: 6,
-    CANCELLED: 7,
+    ARRIVING: 6,
+    DELIVERED: 7,
+    CANCELLED: 8,
 };
 
 export const ORDER_STATUS_TEXT = {
@@ -16,10 +17,11 @@ export const ORDER_STATUS_TEXT = {
     3: "Ready for Pickup",
     4: "Picked Up",
     5: "Out for Delivery",
-    6: "Delivered",
-    7: "Cancelled",
+    6: "Arriving",
+    7: "Delivered",
+    8: "Cancelled",
 };
 
-export const ACTIVE_STATUSES = [0, 1, 2, 3, 4, 5];
+export const ACTIVE_STATUSES = [0, 1, 2, 3, 4, 5, 6];
 
-export const NON_CANCELLABLE_STATUSES = [3, 4, 5, 6];
+export const NON_CANCELLABLE_STATUSES = [4, 5, 6, 7];

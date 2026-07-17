@@ -12,6 +12,7 @@ import cartRouter from './routes/cartRoutes.js';
 import addressRouter from './routes/addressRoutes.js';
 import orderRouter from './routes/orderRoutes.js';
 import connectDb from './config/db.js';
+import paymentRouter from './routes/paymentRouter.js';
 
 dotenv.config();
 
@@ -47,7 +48,7 @@ io.on('connection', (socket) => {
     if (userId) {
         socket.join(userId);
     }
-    socket.on('disconnect', () => {});
+    socket.on('disconnect', () => { });
 });
 
 app.set('io', io);
@@ -57,6 +58,7 @@ app.use('/restaurants', restaurantRouter)
 app.use('/cart', cartRouter);
 app.use('/address', addressRouter);
 app.use('/orders', orderRouter);
+app.use('/payment', paymentRouter);
 
 const PORT = process.env.PORT
 

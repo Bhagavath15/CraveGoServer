@@ -1,7 +1,7 @@
 import express from 'express';
 import { requireSignIn } from '../middleware/authMiddleware.js';
 import { orderRateLimiter } from '../middleware/rateLimiter.js';
-import { advanceOrderStatus, cancelOrder, getOrderById, getOrders, placeOrder } from '../controller/orderController.js';
+import { advanceOrderStatus, cancelOrder, getOrderById, getOrders, placeOrder, rateOrder } from '../controller/orderController.js';
 
 const router = express.Router();
 
@@ -10,5 +10,6 @@ router.get('/', requireSignIn, getOrders);
 router.get('/:id', requireSignIn, getOrderById);
 router.post('/:id/cancel', requireSignIn, cancelOrder);
 router.patch('/:id/advance', requireSignIn, advanceOrderStatus);
+router.post('/:id/rate', requireSignIn, rateOrder);
 
 export default router;

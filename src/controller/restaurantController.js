@@ -4,10 +4,27 @@ import restaurantMenuModel from "../models/restaurantMenu.js";
 export const getRestaurants = async (req, res) => {
     try {
         const restaurants = await restaurantModel.find();
+        const menus = await restaurantMenuModel.find({});
+        const itemNamesByRestaurant = {};
+        for (const menu of menus) {
+            const names = [];
+            for (const cat of menu.menu) {
+                for (const item of cat.items) {
+                    names.push(item.name);
+                }
+            }
+            itemNamesByRestaurant[menu.restaurantId] = names;
+        }
+        const enriched = restaurants.map((r) => {
+            const obj = r.toObject();
+            obj.menuItemNames = itemNamesByRestaurant[r.restaurantId || r._id] || [];
+            return obj;
+        });
+
         res.status(200).json({
             success: true,
             message: "Restaurants fetched successfully",
-            restaurants,
+            restaurants: enriched,
         })
 
     } catch (error) {
@@ -56,7 +73,6 @@ export const getRestaurantMenu = async (req, res) => {
             data: restaurantMenu,
         });
     } catch (error) {
-        console.error(error);
 
         return res.status(500).send({
             success: false,
