@@ -85,6 +85,30 @@ const cartSchema = new mongoose.Schema(
             default: 0,
         },
 
+        couponId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Coupon",
+            default: null,
+        },
+
+        couponCode: {
+            type: String,
+            default: "",
+            uppercase: true,
+            trim: true,
+        },
+
+        couponTitle: {
+            type: String,
+            default: "",
+        },
+
+        couponType: {
+            type: String,
+            enum: ["FLAT", "PERCENTAGE", "FREE_DELIVERY", ""],
+            default: "",
+        },
+
         grandTotal: {
             type: Number,
             default: 0,

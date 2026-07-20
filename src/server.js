@@ -13,6 +13,12 @@ import addressRouter from './routes/addressRoutes.js';
 import orderRouter from './routes/orderRoutes.js';
 import connectDb from './config/db.js';
 import paymentRouter from './routes/paymentRouter.js';
+import userRouter from './routes/userRoutes.js';
+import favouriteRouter from './routes/favouriteRoutes.js';
+import { handleStripeWebhook } from './controller/paymentController.js';
+import couponRoutes from "./routes/couponRouter.js";
+import bannerRoutes from "./routes/bannerRoutes.js";
+import notificationRoutes from "./routes/notificationRoutes.js";
 
 dotenv.config();
 
@@ -23,6 +29,9 @@ const app = express();
 connectDb();
 
 app.use(cors({ origin: ['http://localhost:8080', 'http://localhost:3000'] }));
+
+app.post('/payment/webhook/stripe', express.raw({ type: 'application/json' }), handleStripeWebhook);
+
 app.use(express.json());
 
 const server = http.createServer(app);
@@ -59,6 +68,11 @@ app.use('/cart', cartRouter);
 app.use('/address', addressRouter);
 app.use('/orders', orderRouter);
 app.use('/payment', paymentRouter);
+app.use('/user', userRouter);
+app.use('/favorites', favouriteRouter);
+app.use("/coupon", couponRoutes);
+app.use("/banners", bannerRoutes);
+app.use("/notification", notificationRoutes);
 
 const PORT = process.env.PORT
 

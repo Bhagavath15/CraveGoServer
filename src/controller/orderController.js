@@ -7,6 +7,7 @@ import restaurantMenuModel from "../models/restaurantMenu.js";
 import { generateOrderNumber } from "../utils/orderCounter.js";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, ACTIVE_STATUSES, NON_CANCELLABLE_STATUSES } from "../constants/orderStatus.js";
 import stripe from "../config/stripe.js";
+import { sendPushNotification } from "../services/notification.service.js";
 
 const autoAdvanceTimers = new Map();
 
@@ -155,7 +156,7 @@ export const placeOrder = async (req, res) => {
 
         const tax = round2(subtotal * (DELIVERY_CONFIG.GST_PERCENTAGE / 100));
 
-        const discount = 0;
+        const discount = cart.discount || 0;
 
         const grandTotal = round2(
             subtotal +
@@ -195,7 +196,11 @@ export const placeOrder = async (req, res) => {
                     subtotal,
                     deliveryFee,
                     tax,
-                    discount,
+                    discount: cart.discount || 0,
+                    couponId: cart.couponId || null,
+                    couponCode: cart.couponCode || "",
+                    couponTitle: cart.couponTitle || "",
+                    couponType: cart.couponType || "",
                     grandTotal,
                     paymentMethod,
                     paymentStatus: paymentIntentId ? "Authorized" : "Pending",
@@ -224,6 +229,14 @@ export const placeOrder = async (req, res) => {
         if (io) {
             io.to(userId).emit('order:update', order);
         }
+
+        sendPushNotification({
+            userId,
+            type: "ORDER",
+            title: "Order Placed",
+            message: `Your order #${orderNumber} has been placed successfully.`,
+            data: { orderId: String(order._id), screen: "TrackOrder" },
+        });
 
         return res.status(201).json({
             success: true,
@@ -362,9 +375,12 @@ export const advanceOrderStatus = async (req, res) => {
             update.deliveredAt = new Date();
             if (order.paymentMethod !== "COD" && order.paymentIntentId) {
                 try {
-                    await stripe.paymentIntents.capture(order.paymentIntentId);
+                    const captured = await stripe.paymentIntents.capture(order.paymentIntentId);
                     update.paymentStatus = "Paid";
+                    update.transactionId = captured.charges?.data?.[0]?.balance_transaction || null;
+                    update.paymentTimestamp = new Date();
                 } catch (stripeErr) {
+                    update.paymentStatus = "Failed";
                 }
             }
         }
@@ -378,6 +394,30 @@ export const advanceOrderStatus = async (req, res) => {
         }
         const io = req.app.get("io");
         if (io) io.to(userId).emit("order:update", updated);
+
+        const statusText = ORDER_STATUS_TEXT[newStatus];
+        if (statusText) {
+            const statusMessages = {
+                [ORDER_STATUS.ACCEPTED]: { title: "Restaurant Accepted", message: `Your order #${updated.orderNumber} has been accepted by the restaurant.` },
+                [ORDER_STATUS.PREPARING]: { title: "Preparing", message: `Your order #${updated.orderNumber} is being prepared.` },
+                [ORDER_STATUS.READY_FOR_PICKUP]: { title: "Ready for Pickup", message: `Your order #${updated.orderNumber} is ready for pickup.` },
+                [ORDER_STATUS.PICKED_UP]: { title: "Picked Up", message: `Your order #${updated.orderNumber} has been picked up.` },
+                [ORDER_STATUS.OUT_FOR_DELIVERY]: { title: "Out for Delivery", message: `Your order #${updated.orderNumber} is out for delivery.` },
+                [ORDER_STATUS.ARRIVING]: { title: "Arriving Soon", message: `Your order #${updated.orderNumber} is arriving soon.` },
+                [ORDER_STATUS.DELIVERED]: { title: "Order Delivered", message: `Your order #${updated.orderNumber} has been delivered successfully.` },
+            };
+            const notif = statusMessages[newStatus];
+            if (notif) {
+                sendPushNotification({
+                    userId,
+                    type: "ORDER",
+                    title: notif.title,
+                    message: notif.message,
+                    data: { orderId: String(updated._id), screen: "TrackOrder" },
+                });
+            }
+        }
+
         return res.status(200).json({ success: true, order: updated });
     } catch (error) {
         return res.status(500).json({ success: false, message: error.message });
@@ -422,14 +462,26 @@ export const cancelOrder = async (req, res) => {
 
         if (
             order.paymentMethod !== "COD" &&
-            order.paymentStatus === "Authorized" &&
             order.paymentIntentId
         ) {
             try {
                 await stripe.paymentIntents.cancel(order.paymentIntentId);
                 order.paymentStatus = "Refunded";
-                } catch (stripeErr) {
+            } catch (stripeErr) {
+                if (order.paymentStatus === "Paid") {
+                    order.paymentStatus = "Refunded";
+                }
             }
+        }
+
+        if (order.paymentStatus === "Refunded") {
+            sendPushNotification({
+                userId,
+                type: "PAYMENT",
+                title: "Payment Refunded",
+                message: `Your payment of ₹${order.grandTotal} has been refunded.`,
+                data: { orderId: String(order._id), screen: "TrackOrder" },
+            });
         }
 
         await order.save();
@@ -455,6 +507,14 @@ export const cancelOrder = async (req, res) => {
         if (io) {
             io.to(userId).emit('order:update', order);
         }
+
+        sendPushNotification({
+            userId,
+            type: "ORDER",
+            title: "Order Cancelled",
+            message: `Your order #${order.orderNumber} has been cancelled.`,
+            data: { orderId: String(order._id), screen: "Orders" },
+        });
 
         return res.status(200).json({
             success: true,

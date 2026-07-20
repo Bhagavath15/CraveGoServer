@@ -277,6 +277,10 @@ export const clearCart = async (req, res) => {
         cart.deliveryFee = 0;
         cart.tax = 0;
         cart.discount = 0;
+        cart.couponId = null;
+        cart.couponCode = "";
+        cart.couponTitle = "";
+        cart.couponType = "";
         cart.grandTotal = 0;
         cart.markModified('items');
         cart.markModified('restaurantId');

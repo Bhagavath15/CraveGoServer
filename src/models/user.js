@@ -18,9 +18,21 @@ const userSchema = new mongoose.Schema(
             type: String,
             required: true
         },
+        phone: {
+            type: String,
+            trim: true
+        },
         isVerified: {
             type: Boolean,
             default: false
+        },
+        fcmToken: {
+            type: String,
+            default: null
+        },
+        fcmTokenUpdatedAt: {
+            type: Date,
+            default: null
         }
     },
     {

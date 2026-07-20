@@ -139,8 +139,31 @@ const orderSchema = new mongoose.Schema(
         discount: {
             type: Number,
             default: 0,
+
+        },
+        couponId: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "Coupon",
+            default: null,
         },
 
+        couponCode: {
+            type: String,
+            default: "",
+            uppercase: true,
+            trim: true,
+        },
+
+        couponTitle: {
+            type: String,
+            default: "",
+        },
+
+        couponType: {
+            type: String,
+            enum: ["FLAT", "PERCENTAGE", "FREE_DELIVERY", ""],
+            default: "",
+        },
         grandTotal: {
             type: Number,
             required: true,
@@ -154,12 +177,22 @@ const orderSchema = new mongoose.Schema(
 
         paymentStatus: {
             type: String,
-            enum: ["Pending", "Authorized", "Paid", "Failed", "Refunded"],
+            enum: ["Pending", "Processing", "Authorized", "Paid", "Failed", "Refunded"],
             default: "Pending",
         },
 
         paymentIntentId: {
             type: String,
+            default: null,
+        },
+
+        transactionId: {
+            type: String,
+            default: null,
+        },
+
+        paymentTimestamp: {
+            type: Date,
             default: null,
         },
 
