@@ -115,9 +115,10 @@ export const addToCart = async (req, res) => {
             cart,
         });
     } catch (error) {
+        console.error("Cart Add Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message || "Failed to add item to cart.",
+            message: "Failed to add item to cart.",
         });
     }
 };
@@ -149,9 +150,10 @@ export const getCart = async (req, res) => {
             cart: plain,
         });
     } catch (error) {
+        console.error("Cart Get Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message || "Failed to get cart.",
+            message: "Failed to get cart.",
         });
     }
 };
@@ -198,9 +200,10 @@ export const updateCartItem = async (req, res) => {
             cart,
         });
     } catch (error) {
+        console.error("Cart Update Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message || "Failed to update cart item.",
+            message: "Failed to update cart item.",
         });
     }
 };
@@ -250,9 +253,10 @@ export const removeCartItem = async (req, res) => {
             cart,
         });
     } catch (error) {
+        console.error("Cart Remove Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message || "Failed to remove item.",
+            message: "Failed to remove item.",
         });
     }
 };
@@ -292,9 +296,10 @@ export const clearCart = async (req, res) => {
             message: "Cart cleared successfully.",
         });
     } catch (error) {
+        console.error("Cart Clear Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message || "Failed to clear cart.",
+            message: "Failed to clear cart.",
         });
     }
 };

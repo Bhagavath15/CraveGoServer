@@ -49,11 +49,6 @@ const couponSchema = new mongoose.Schema(
       default: 0,
     },
 
-    usedCount: {
-      type: Number,
-      default: 0,
-    },
-
     firstOrderOnly: {
       type: Boolean,
       default: false,
@@ -62,6 +57,11 @@ const couponSchema = new mongoose.Schema(
     isActive: {
       type: Boolean,
       default: true,
+    },
+
+    usedBy: {
+      type: [String],
+      default: [],
     },
   },
   {

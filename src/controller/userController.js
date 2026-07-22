@@ -20,13 +20,15 @@ export const getProfile = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone,
-                isVerified: user.isVerified
+                isVerified: user.isVerified,
+                notifPref: user.notifPref
             }
         });
     } catch (err) {
+        console.error("User Controller Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };
@@ -34,11 +36,12 @@ export const getProfile = async (req, res) => {
 export const updateProfile = async (req, res) => {
     try {
         const userId = req.user.id;
-        const { name, phone } = req.body;
+        const { name, phone, notifPref } = req.body;
 
         const update = {};
         if (name !== undefined) update.name = name;
         if (phone !== undefined) update.phone = phone;
+        if (notifPref !== undefined) update.notifPref = notifPref;
 
         if (Object.keys(update).length === 0) {
             return res.status(400).json({
@@ -68,13 +71,15 @@ export const updateProfile = async (req, res) => {
                 name: user.name,
                 email: user.email,
                 phone: user.phone,
-                isVerified: user.isVerified
+                isVerified: user.isVerified,
+                notifPref: user.notifPref
             }
         });
     } catch (err) {
+        console.error("User Controller Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };

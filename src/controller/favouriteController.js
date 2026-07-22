@@ -41,10 +41,10 @@ export const addFavourite = async (req, res) => {
             favourite,
         });
     } catch (error) {
+        console.error("Favourite Error:", error);
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error",
-            error: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };
@@ -82,10 +82,10 @@ export const getFavourites = async (req, res) => {
             favourites: enriched,
         });
     } catch (error) {
+        console.error("Favourite Error:", error);
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error",
-            error: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };
@@ -110,10 +110,10 @@ export const removeFavourite = async (req, res) => {
             isFavourite: false,
         });
     } catch (error) {
+        console.error("Favourite Error:", error);
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error",
-            error: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };
@@ -130,10 +130,10 @@ export const checkFavouriteStatus = async (req, res) => {
             isFavourite: !!existing,
         });
     } catch (error) {
+        console.error("Favourite Error:", error);
         return res.status(500).json({
             success: false,
-            message: "Internal Server Error",
-            error: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };

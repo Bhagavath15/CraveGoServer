@@ -3,8 +3,21 @@ import firebaseApp from "../config/firebase.js";
 import userModel from "../models/user.js";
 import notificationModel from "../models/notificationModel.js";
 
+const TYPE_PREF_MAP = {
+    ORDER: "orderUpdates",
+    PAYMENT: "orderUpdates",
+    COUPON: "offersDisc",
+};
+
 export const sendPushNotification = async ({ userId, type, title, message, data = {} }) => {
     try {
+        const user = await userModel.findById(userId).select("fcmToken notifPref");
+
+        const prefKey = TYPE_PREF_MAP[type];
+        if (prefKey && user?.notifPref?.[prefKey] === false) {
+            return null;
+        }
+
         const notificationDoc = await notificationModel.create({
             userId,
             type,
@@ -12,8 +25,6 @@ export const sendPushNotification = async ({ userId, type, title, message, data 
             message,
             data,
         });
-
-        const user = await userModel.findById(userId).select("fcmToken");
 
         if (!user?.fcmToken) {
             return notificationDoc;

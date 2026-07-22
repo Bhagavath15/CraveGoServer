@@ -3,22 +3,57 @@ import restaurantMenuModel from "../models/restaurantMenu.js";
 
 export const getRestaurants = async (req, res) => {
     try {
-        const restaurants = await restaurantModel.find();
-        const menus = await restaurantMenuModel.find({});
-        const itemNamesByRestaurant = {};
-        for (const menu of menus) {
+        const { search } = req.query;
+
+        let restaurantFilter = {};
+        if (search && search.trim()) {
+            const query = search.trim();
+            const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+            const regex = new RegExp(escaped, "i");
+
+            const menuDocs = await restaurantMenuModel.find({
+                "menu.items.name": { $regex: regex },
+            }).select("restaurantId").lean();
+
+            const matchedIds = [
+                ...new Set(menuDocs.map((d) => d.restaurantId).filter(Boolean)),
+            ];
+
+            const validObjectIds = matchedIds.filter((id) =>
+                /^[0-9a-fA-F]{24}$/.test(id)
+            );
+            const conditions = [
+                { name: { $regex: regex } },
+                { cuisines: { $regex: regex } },
+                { restaurantId: { $in: matchedIds } },
+            ];
+            if (validObjectIds.length) {
+                conditions.push({ _id: { $in: validObjectIds } });
+            }
+            restaurantFilter = { $or: conditions };
+        }
+
+        const restaurants = await restaurantModel.find(restaurantFilter).lean();
+        const menuDocs = await restaurantMenuModel.find({}).lean();
+
+        const toStr = (id) => (id ? String(id) : "");
+        const itemNamesByRid = {};
+        for (const doc of menuDocs) {
+            const key = toStr(doc.restaurantId) || toStr(doc._id);
+            if (!key) continue;
             const names = [];
-            for (const cat of menu.menu) {
-                for (const item of cat.items) {
-                    names.push(item.name);
+            for (const cat of doc.menu || []) {
+                for (const item of cat.items || []) {
+                    if (item.name) names.push(item.name);
                 }
             }
-            itemNamesByRestaurant[menu.restaurantId] = names;
+            itemNamesByRid[key] = names;
         }
+
         const enriched = restaurants.map((r) => {
-            const obj = r.toObject();
-            obj.menuItemNames = itemNamesByRestaurant[r.restaurantId || r._id] || [];
-            return obj;
+            const key = toStr(r.restaurantId) || toStr(r._id);
+            r.menuItemNames = itemNamesByRid[key] || [];
+            return r;
         });
 
         res.status(200).json({
@@ -28,11 +63,11 @@ export const getRestaurants = async (req, res) => {
         })
 
     } catch (error) {
+        console.error("getRestaurants Error:", error);
         res.status(500).json({
             success: false,
-            error: error
+            message: "Failed to fetch restaurants"
         })
-
     }
 }
 export const getRestaurantMenu = async (req, res) => {
@@ -73,11 +108,10 @@ export const getRestaurantMenu = async (req, res) => {
             data: restaurantMenu,
         });
     } catch (error) {
-
-        return res.status(500).send({
+        console.error("getRestaurantMenu Error:", error);
+        return res.status(500).json({
             success: false,
-            message: "Internal Server Error",
-            error: error.message,
+            message: "Failed to fetch restaurant menu",
         });
     }
 };

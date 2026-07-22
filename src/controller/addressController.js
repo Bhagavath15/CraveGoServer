@@ -30,9 +30,10 @@ export const addAddress = async (req, res) => {
             address,
         });
     } catch (error) {
+        console.error("Address Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };
@@ -52,9 +53,10 @@ export const getAddress = async (req, res) => {
             addresses,
         });
     } catch (error) {
+        console.error("Address Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };
@@ -78,9 +80,10 @@ export const getAddressById = async (req, res) => {
             address,
         });
     } catch (error) {
+        console.error("Address Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };
@@ -118,9 +121,10 @@ export const editAddress = async (req, res) => {
             address,
         });
     } catch (error) {
+        console.error("Address Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };
@@ -157,9 +161,10 @@ export const deleteAddress = async (req, res) => {
             message: "Address deleted successfully.",
         });
     } catch (error) {
+        console.error("Address Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };
@@ -201,9 +206,10 @@ export const setDefaultAddress = async (req, res) => {
             address,
         });
     } catch (error) {
+        console.error("Address Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Something went wrong. Please try again.",
         });
     }
 };

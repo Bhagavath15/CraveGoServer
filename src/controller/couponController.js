@@ -62,14 +62,6 @@ export const validateCoupon = async (req, res) => {
 
         const userId = req.user.id || req.user._id;
 
-        sendPushNotification({
-            userId,
-            type: "COUPON",
-            title: "Coupon Applied",
-            message: `Coupon ${couponCode.toUpperCase()} applied! You saved ₹${result.discount}.`,
-            data: { couponCode: result.couponCode, screen: "Checkout" },
-        });
-
         const round2 = (n) => Math.round(n * 100) / 100;
         await cartModel.findOneAndUpdate(
             { userId },
@@ -100,6 +92,17 @@ export const validateCoupon = async (req, res) => {
     }
 };
 
+export const getCouponCount = async (req, res) => {
+    try {
+        const now = new Date();
+        const count = await CouponService.getCouponCount(now);
+        return res.status(200).json({ success: true, count });
+    } catch (error) {
+        console.error("Get Coupon Count Error:", error);
+        return res.status(500).json({ success: false, message: "Failed to fetch coupon count" });
+    }
+};
+
 export const removeCoupon = async (req, res) => {
     try {
         const userId = req.user.id || req.user._id;
@@ -116,6 +119,7 @@ export const removeCoupon = async (req, res) => {
         }
         return res.status(200).json({ success: true, message: "Coupon removed" });
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
+        console.error("Remove Coupon Error:", error);
+        return res.status(500).json({ success: false, message: "Failed to remove coupon." });
     }
 };

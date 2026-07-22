@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema(
         fcmTokenUpdatedAt: {
             type: Date,
             default: null
+        },
+        notifPref: {
+            type: Object,
+            default: { orderUpdates: true, offersDisc: true, sysNotif: true },
         }
     },
     {

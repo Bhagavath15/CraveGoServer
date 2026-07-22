@@ -8,6 +8,7 @@ import { generateOrderNumber } from "../utils/orderCounter.js";
 import { ORDER_STATUS, ORDER_STATUS_TEXT, ACTIVE_STATUSES, NON_CANCELLABLE_STATUSES } from "../constants/orderStatus.js";
 import stripe from "../config/stripe.js";
 import { sendPushNotification } from "../services/notification.service.js";
+import { incrementCouponUsage, decrementCouponUsage } from "../services/coupon.service.js";
 
 const autoAdvanceTimers = new Map();
 
@@ -71,15 +72,6 @@ export const placeOrder = async (req, res) => {
             return res.status(400).json({
                 success: false,
                 message: "Cart is empty.",
-            });
-        }
-
-        const allowedMethods = ["COD", "UPI", "CARD", "ONLINE"];
-
-        if (!allowedMethods.includes(paymentMethod)) {
-            return res.status(400).json({
-                success: false,
-                message: "Invalid payment method.",
             });
         }
 
@@ -223,6 +215,10 @@ export const placeOrder = async (req, res) => {
 
         await cart.save();
 
+        if (cart.couponId) {
+            await incrementCouponUsage(cart.couponId, userId, session);
+        }
+
         await session.commitTransaction();
 
         const io = req.app.get('io');
@@ -238,6 +234,16 @@ export const placeOrder = async (req, res) => {
             data: { orderId: String(order._id), screen: "TrackOrder" },
         });
 
+        if (cart.couponCode) {
+            sendPushNotification({
+                userId,
+                type: "COUPON",
+                title: "Coupon Applied",
+                message: `Coupon ${cart.couponCode.toUpperCase()} applied! You saved ₹${cart.discount}.`,
+                data: { couponCode: cart.couponCode, screen: "Orders" },
+            });
+        }
+
         return res.status(201).json({
             success: true,
             message: "Order placed successfully.",
@@ -245,10 +251,10 @@ export const placeOrder = async (req, res) => {
         });
     } catch (error) {
         await session.abortTransaction();
-
+        console.error("Place Order Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Failed to place order. Please try again.",
         });
     }
     finally {
@@ -301,9 +307,10 @@ export const getOrders = async (req, res) => {
             },
         });
     } catch (error) {
+        console.error("Get Orders Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Failed to fetch orders.",
         });
     }
 
@@ -349,12 +356,11 @@ export const getOrderById = async (req, res) => {
         });
 
     } catch (error) {
-
+        console.error("Get Order By ID Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Failed to fetch order details.",
         });
-
     }
 };
 
@@ -420,7 +426,8 @@ export const advanceOrderStatus = async (req, res) => {
 
         return res.status(200).json({ success: true, order: updated });
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
+        console.error("Advance Order Status Error:", error);
+        return res.status(500).json({ success: false, message: "Failed to advance order status." });
     }
 };
 
@@ -474,17 +481,11 @@ export const cancelOrder = async (req, res) => {
             }
         }
 
-        if (order.paymentStatus === "Refunded") {
-            sendPushNotification({
-                userId,
-                type: "PAYMENT",
-                title: "Payment Refunded",
-                message: `Your payment of ₹${order.grandTotal} has been refunded.`,
-                data: { orderId: String(order._id), screen: "TrackOrder" },
-            });
-        }
-
         await order.save();
+
+        if (order.couponId) {
+            decrementCouponUsage(order.couponId, userId);
+        }
 
         try {
             const userCart = await cartModel.findOne({ userId });
@@ -523,12 +524,11 @@ export const cancelOrder = async (req, res) => {
         });
 
     } catch (error) {
-
+        console.error("Cancel Order Error:", error);
         return res.status(500).json({
             success: false,
-            message: error.message,
+            message: "Failed to cancel order.",
         });
-
     }
 };
 
@@ -557,6 +557,69 @@ export const rateOrder = async (req, res) => {
 
         return res.status(200).json({ success: true, message: "Rating submitted successfully." });
     } catch (error) {
-        return res.status(500).json({ success: false, message: error.message });
+        console.error("Rate Order Error:", error);
+        return res.status(500).json({ success: false, message: "Failed to submit rating." });
+    }
+};
+
+export const reorder = async (req, res) => {
+    try {
+        const userId = req.user.id;
+        const { id } = req.params;
+
+        const order = await orderModel.findOne({ _id: id, userId });
+        if (!order) {
+            return res.status(404).json({ success: false, message: "Order not found." });
+        }
+
+        const menuDoc = await restaurantMenuModel.findOne({ restaurantId: order.restaurantId });
+        if (!menuDoc) {
+            return res.status(404).json({ success: false, message: "Restaurant menu not found." });
+        }
+
+        let cart = await cartModel.findOne({ userId });
+        if (!cart) {
+            cart = await cartModel.create({ userId, restaurantId: order.restaurantId, items: [] });
+        } else {
+            cart.items = [];
+            cart.restaurantId = order.restaurantId;
+            cart.couponId = null;
+            cart.couponCode = "";
+            cart.couponTitle = "";
+            cart.couponType = "";
+            cart.discount = 0;
+        }
+
+        for (const item of order.items) {
+            cart.items.push({
+                menuItemId: item.menuItemId,
+                name: item.name,
+                image: item.image || "",
+                price: item.price,
+                quantity: item.quantity,
+                isVeg: item.isVeg ?? true,
+                customization: item.customizations || [],
+            });
+        }
+
+        const round2 = (n) => Math.round(n * 100) / 100;
+        let subtotal = 0;
+        for (const item of cart.items) {
+            const customizationPrice = (item.customization || []).reduce((s, o) => s + (o.price || 0), 0);
+            item.totalPrice = round2((item.price + customizationPrice) * item.quantity);
+            subtotal += item.totalPrice;
+        }
+        cart.subtotal = round2(subtotal);
+        cart.deliveryFee = subtotal >= 500 ? 0 : 40;
+        cart.tax = round2(subtotal * 0.05);
+        cart.grandTotal = round2(cart.subtotal + cart.deliveryFee + cart.tax);
+
+        cart.markModified("items");
+        await cart.save();
+
+        return res.status(200).json({ success: true, message: "Items added to cart.", cart });
+    } catch (error) {
+        console.error("Reorder Error:", error);
+        return res.status(500).json({ success: false, message: "Failed to reorder." });
     }
 };

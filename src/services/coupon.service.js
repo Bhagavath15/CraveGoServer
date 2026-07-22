@@ -36,15 +36,16 @@ export const getAvailableCoupons = async ({ userId, restaurantId, subtotal }) =>
       {
         $or: [
           { usageLimit: 0 },
-          { $expr: { $lt: ["$usedCount", "$usageLimit"] } },
+          { $expr: { $lt: [{ $size: "$usedBy" }, "$usageLimit"] } },
         ],
       },
     ],
   }).lean();
 
   return coupons
-    .filter((c) => subtotal >= (c.minimumOrderAmount || 0))
+    .filter((c) => subtotal === 0 || subtotal >= (c.minimumOrderAmount || 0))
     .filter((c) => !c.firstOrderOnly || isFirstOrder)
+    .filter((c) => !c.usedBy?.includes(userId))
     .map((c) => ({
       _id: c._id,
       code: c.code,
@@ -92,8 +93,12 @@ export const validateCoupon = async ({
     );
   }
 
-  if (coupon.usageLimit > 0 && coupon.usedCount >= coupon.usageLimit) {
+  if (coupon.usageLimit > 0 && (coupon.usedBy?.length || 0) >= coupon.usageLimit) {
     throw new Error("Coupon usage limit has been reached");
+  }
+
+  if (coupon.usedBy?.includes(userId)) {
+    throw new Error("You have already used this coupon");
   }
 
   if (coupon.firstOrderOnly) {
@@ -130,10 +135,17 @@ export const validateCoupon = async ({
   };
 };
 
-export const incrementCouponUsage = async (couponId, session) => {
+export const incrementCouponUsage = async (couponId, userId, session) => {
   await couponModel.findByIdAndUpdate(
     couponId,
-    { $inc: { usedCount: 1 } },
+    { $addToSet: { usedBy: userId } },
     { session }
+  );
+};
+
+export const decrementCouponUsage = async (couponId, userId) => {
+  await couponModel.findByIdAndUpdate(
+    couponId,
+    { $pull: { usedBy: userId } }
   );
 };

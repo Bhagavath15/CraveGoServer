@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireSignIn } from "../middleware/authMiddleware.js";
+import { validate, schemas } from "../middleware/validate.js";
 import {
     registerToken,
     getNotifications,
@@ -11,7 +12,7 @@ import {
 
 const router = Router();
 
-router.post("/register-token", requireSignIn, registerToken);
+router.post("/register-token", requireSignIn, validate(schemas.registerToken), registerToken);
 router.get("/", requireSignIn, getNotifications);
 router.get("/unread-count", requireSignIn, getUnreadCount);
 router.patch("/:id/read", requireSignIn, markAsRead);

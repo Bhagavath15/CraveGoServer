@@ -39,7 +39,11 @@ export const register = async (req, res) => {
             expiresAt
         });
 
-        await sendEmailOtp(email, otp, "signup");
+        try {
+            await sendEmailOtp(email, otp, "signup");
+        } catch (emailErr) {
+            console.error("Failed to send OTP email:", emailErr.message);
+        }
 
         const token = jwt.sign(
             { id: user._id },
@@ -59,9 +63,10 @@ export const register = async (req, res) => {
             }
         });
     } catch (err) {
+        console.error("Auth Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };
@@ -120,9 +125,10 @@ export const verifyEmailOtp = async (req, res) => {
             }
         });
     } catch (err) {
+        console.error("Auth Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };
@@ -172,9 +178,10 @@ export const login = async (req, res) => {
             }
         });
     } catch (err) {
+        console.error("Auth Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };
@@ -210,16 +217,21 @@ export const forgotPassword = async (req, res) => {
             expiresAt
         });
 
-        await sendEmailOtp(email, otp, "forgot_password");
+        try {
+            await sendEmailOtp(email, otp, "forgot_password");
+        } catch (emailErr) {
+            console.error("Failed to send OTP email:", emailErr.message);
+        }
 
         return res.status(200).json({
             success: true,
             message: "Password reset OTP sent to your email"
         });
     } catch (err) {
+        console.error("Auth Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };
@@ -273,9 +285,10 @@ export const verifyForgotPasswordOtp = async (req, res) => {
             resetToken
         });
     } catch (err) {
+        console.error("Auth Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };
@@ -324,9 +337,10 @@ export const resetPassword = async (req, res) => {
             message: "Password reset successfully"
         });
     } catch (err) {
+        console.error("Auth Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };
@@ -365,16 +379,21 @@ export const resendOtp = async (req, res) => {
         const expiresAt = new Date(Date.now() + 5 * 60 * 1000);
 
         await emailOtpModel.create({ email, otp, type, expiresAt });
-        await sendEmailOtp(email, otp, type);
+        try {
+            await sendEmailOtp(email, otp, type);
+        } catch (emailErr) {
+            console.error("Failed to send OTP email:", emailErr.message);
+        }
 
         return res.status(200).json({
             success: true,
             message: "OTP resent to your email"
         });
     } catch (err) {
+        console.error("Auth Error:", err);
         return res.status(500).json({
             success: false,
-            message: err.message
+            message: "Something went wrong. Please try again."
         });
     }
 };

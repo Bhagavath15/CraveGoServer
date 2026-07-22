@@ -28,6 +28,7 @@ const emailOtpSchema = new mongoose.Schema(
 )
 
 emailOtpSchema.index({ email: 1, type: 1 });
+emailOtpSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 const emailOtpModel = mongoose.model("EmailOtp", emailOtpSchema);
 

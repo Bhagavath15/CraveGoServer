@@ -148,6 +148,7 @@ export const handleStripeWebhook = async (req, res) => {
             }
         }
     } catch (err) {
+        console.error("Stripe webhook processing error:", err.message);
     }
 
     return res.status(200).json({ received: true });
