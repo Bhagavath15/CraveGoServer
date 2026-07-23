@@ -5,7 +5,7 @@ import orderModel from "../models/orderModel.js";
 import restaurantModel from "../models/restaurantDetails.js";
 import restaurantMenuModel from "../models/restaurantMenu.js";
 import { generateOrderNumber } from "../utils/orderCounter.js";
-import { ORDER_STATUS, ORDER_STATUS_TEXT, ACTIVE_STATUSES, NON_CANCELLABLE_STATUSES } from "../constants/orderStatus.js";
+import { ORDER_STATUS, ORDER_STATUS_TEXT, NON_CANCELLABLE_STATUSES } from "../constants/orderStatus.js";
 import stripe from "../config/stripe.js";
 import { sendPushNotification } from "../services/notification.service.js";
 import { incrementCouponUsage, decrementCouponUsage } from "../services/coupon.service.js";
@@ -502,6 +502,7 @@ export const cancelOrder = async (req, res) => {
                 await userCart.save();
             }
             } catch (cartErr) {
+            console.error("Failed to clear cart after cancellation:", cartErr);
         }
 
         const io = req.app.get('io');

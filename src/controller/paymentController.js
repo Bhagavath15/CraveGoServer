@@ -47,9 +47,13 @@ export const createPaymentIntent = async (req, res) => {
                 limit: 10,
             });
             for (const pi of existing.data) {
-                await stripe.paymentIntents.cancel(pi.id).catch(() => { });
+                await stripe.paymentIntents.cancel(pi.id).catch((err) => {
+                    console.warn("Failed to cancel stale PaymentIntent:", pi.id, err);
+                });
             }
-        } catch (_) { }
+        } catch (_) {
+            console.warn("Failed to search/cancel stale PaymentIntents");
+        }
 
         const stripeAmount = Math.round(serverGrandTotal * 100);
         const paymentIntent = await stripe.paymentIntents.create({

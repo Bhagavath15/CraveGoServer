@@ -76,16 +76,10 @@ export const sendPushNotification = async ({ userId, type, title, message, data 
                 await userModel.findByIdAndUpdate(userId, {
                     $set: { fcmToken: null, fcmTokenUpdatedAt: null },
                 });
-            } catch { }
+            } catch {
+                console.warn("Failed to clear invalid FCM token for user:", userId);
+            }
         }
         return null;
-    }
-};
-
-export const getUnreadCount = async (userId) => {
-    try {
-        return await notificationModel.countDocuments({ userId, isRead: false });
-    } catch {
-        return 0;
     }
 };
