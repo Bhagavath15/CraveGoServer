@@ -77,6 +77,31 @@ const restaurantSchema = new mongoose.Schema(
             default: false,
         },
 
+        isOpen: {
+            type: Boolean,
+            default: true,
+        },
+
+        operatingHours: {
+            type: String,
+            default: "",
+        },
+
+        priceForTwo: {
+            type: String,
+            default: "",
+        },
+
+        deliveryFee: {
+            type: String,
+            default: "",
+        },
+
+        freeDelivery: {
+            type: Boolean,
+            default: false,
+        },
+
         restaurantId: {
             type: String,
         }
